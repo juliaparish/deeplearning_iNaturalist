@@ -9,6 +9,20 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Homework task is to apply your deep learning skills to build the following models:
+
+- 2 Species (binary classification) - neural net. Draw from 3.4 🍿 Movies (binary classification). You’ll need to pre-process the images to be a consistent shape first though – see 5.2.4 Data preprocessing.
+- 2 Species (binary classification) - convolutional neural net. Draw from the dogs vs cats example.
+- 10 Species (multi-class classification) - neural net. Draw from 3.5 📰 Newswires (multi-class classification).
+- 10 Species (multi-class classification) - convolutional neural net. Draw from dogs vs cats example and update necessary values to go from binary to mult-class classification.
+
+In your models, be sure to include the following:
+
+- Split the original images per species (n=50) into train (n=30), validate (n=10) and test (n=10). These are almost absurdly few files to feed into these complex deep learning models but will serve as a good learning example.
+- Include accuracy metric and validation in the fitting process and history plot.
+- Evaluate loss and accuracy on your test model results. Compare standard neural network and convolutional neural network results.
+
+
 ```{r}
 librarian::shelf(
   digest, dplyr, DT, keras, glue, here, readr, tensorflow, tidyverse)
@@ -45,6 +59,8 @@ i2 <- i10[1:2]
 basename(dirs_spp)[i2]
 ```
 
+# Split the original images per species (n=50) into train (n=30), validate (n=10) and test (n=10)
+
 ```{r}
 # setup data frame with source (src) and destination (dest) paths to images
 d <- tibble(
@@ -76,27 +92,278 @@ d %>%
 # system(glue("tree {dir_dest}"))
 ```
 
+# 1. 2 Species (binary classification) - neural net
+
 ```{r}
-train_dir <- here("inat/spp2/train")
-validation_dir <- here("inat/spp2/validation")
+train_dir_2spp <- here("inat/spp2/train")
+test_dir_2spp <- here("inat/spp2/test")
+validation_dir_2spp <- here("inat/spp2/validation")
 
 # All images will be rescaled by 1/255
-train_datagen <- image_data_generator(rescale = 1/255)
-validation_datagen <- image_data_generator(rescale = 1/255)
+train_datagen_2spp <- image_data_generator(rescale = 1/255)
+test_datagen_2spp <- image_data_generator(rescale = 1/255)
+validation_datagen_2spp <- image_data_generator(rescale = 1/255)
 
-train_generator <- flow_images_from_directory(
-  train_dir,  # This is the target directory
-  train_datagen, # This is the data generator
+train_generator_2spp <- flow_images_from_directory(
+  train_dir_2spp,  # This is the target directory
+  train_datagen_2spp, # This is the data generator
   target_size = c(150, 150), # All images will be resized to 150x150
-  batch_size = 20,
+  batch_size = 5,
   # Since we use binary_crossentropy loss, we need binary labels
   class_mode = "binary")
 
-validation_generator <- flow_images_from_directory(
-  validation_dir,
-  validation_datagen,
-  target_size = c(150, 150),
-  batch_size = 20,
+test_generator_2spp <- flow_images_from_directory(
+  test_dir_2spp,
+  test_datagen_2spp, 
+  target_size = c(150, 150), 
+  batch_size = 5,
   class_mode = "binary")
+
+validation_generator_2spp <- flow_images_from_directory(
+  validation_dir_2spp,
+  validation_datagen_2spp,
+  target_size = c(150, 150),
+  batch_size = 5,
+  class_mode = "binary")
+```
+
+```{r}
+# The intermediate layers will use relu as their “activation function”, and the final layer will use a sigmoid activation so as to output a probability (a score between 0 and 1, indicating how likely the sample is to have the target “1”, i.e. how likely the review is to be positive). A relu (rectified linear unit) is a function meant to zero-out negative values, while a sigmoid “squashes” arbitrary values into the [0, 1] interval, thus outputting something that can be interpreted as a probability.
+
+model_spp2 <- keras_model_sequential() %>% 
+  layer_dense(units = 16, activation = "relu", input_shape = c(150, 150, 3)) %>% 
+  layer_dense(units = 16, activation = "relu") %>% 
+  layer_flatten() %>% 
+  layer_dense(units =  1, activation = "sigmoid")
+```
+
+pick a loss function and an optimizer - 
+
+```{r}
+# we configure our model with the rmsprop optimizer and the binary_crossentropy loss function. Note that we will also monitor accuracy during training.
+
+model_spp2 %>% compile(
+  optimizer = "rmsprop",
+  loss      = "binary_crossentropy",
+  metrics   = c("accuracy"))
+```
+
+```{r}
+# to configure the parameters of your optimizer 
+model_spp2 %>% compile(
+  optimizer = optimizer_rmsprop(learning_rate = 0.0001),
+  loss      = "binary_crossentropy",
+  metrics   = c("acc")) 
+
+```
+
+```{r}
+# pass a custom loss function or metric function
+
+# model_spp2 %>% compile(
+#   optimizer = optimizer_rmsprop(lr = 0.001),
+#   loss      = loss_binary_crossentropy,
+#   metrics   = metric_binary_accuracy) 
+```
+
+```{r}
+# train our model
+
+history_spp2 <- model_spp2 %>% fit(
+  train_generator_2spp,
+  steps_per_epoch = 5,
+  epochs = 10,
+  validation_data = validation_generator_2spp,
+  validation_steps = 1)
+
+str(history_spp2)
+```
+
+```{r}
+plot(history_spp2)
+```
+
+```{r}
+results_spp2 <- model_spp2 %>% evaluate(test_generator_2spp)
+```
+
+## 2. 2 Species (binary classification) - convolutional neural net
+ 
+```{r}
+cnn_model_spp2 <- keras_model_sequential() %>% 
+  layer_conv_2d(
+    filters = 32, kernel_size = c(3, 3), activation = "relu",
+    input_shape = c(150, 150, 3)) %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = "relu") %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = "relu") %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_flatten() %>% 
+  layer_dropout(rate = 0.5) %>% 
+  layer_dense(units = 512, activation = "relu") %>% 
+  layer_dense(units = 1, activation = "sigmoid")  
+  
+cnn_model_spp2 %>% compile(
+  loss = "binary_crossentropy",
+  optimizer = optimizer_rmsprop(learning_rate = 0.0001),
+  metrics = c("acc"))
+
+```
+
+```{r}
+summary(cnn_model_spp2)
+
+```
+
+## Train Model
+
+```{r}
+# train our model
+
+history_cnn_spp2 <- cnn_model_spp2 %>% fit(
+  train_generator_2spp,
+  steps_per_epoch = 5,
+  epochs = 30,
+  validation_data = validation_generator_2spp,
+  validation_steps = 1)
+
+str(history_cnn_spp2)
+```
+
+```{r}
+plot(history_cnn_spp2)
+```
+
+```{r}
+history_spp2
+```
+
+
+```{r}
+history_cnn_spp2
+```
+
+
+# 3 10 Species (multi-class classification) - neural net. 
+
+
+```{r}
+train_dir_10spp <- here("inat/spp10/train")
+test_dir_10spp <- here("inat/spp10/test")
+validation_dir_10spp <- here("inat/spp10/validation")
+
+# All images will be rescaled by 1/255
+train_datagen_10spp <- image_data_generator(rescale = 1/255)
+test_datagen_10spp <- image_data_generator(rescale = 1/255)
+validation_datagen_10spp <- image_data_generator(rescale = 1/255)
+
+train_generator_10spp <- flow_images_from_directory(
+  train_dir_10spp,  # This is the target directory
+  train_datagen_10spp, # This is the data generator
+  target_size = c(150, 150), # All images will be resized to 150x150
+  batch_size = 5,
+  # 
+  class_mode = "categorical")
+
+test_generator_10spp <- flow_images_from_directory(
+  test_dir_10spp,
+  test_datagen_10spp,
+  target_size = c(150, 150),
+  batch_size = 5,
+  class_mode = "categorical")
+
+validation_generator_10spp <- flow_images_from_directory(
+  validation_dir_10spp,
+  validation_datagen_10spp,
+  target_size = c(150, 150),
+  batch_size = 5,
+  class_mode = "categorical")
+```
+
+
+```{r}
+model_10spp <- keras_model_sequential() %>% 
+  layer_dense(units = 64, activation = "relu", input_shape = c(150, 150, 3)) %>% 
+  layer_dense(units = 64, activation = "relu") %>% 
+  layer_flatten() %>% 
+  layer_dense(units =  10, activation = "softmax")
+
+```
+
+```{r}
+# to configure the parameters of your optimizer 
+model_10spp %>% compile(
+  optimizer = optimizer_rmsprop(learning_rate = 0.0001),
+  loss      = "categorical_crossentropy",
+  metrics   = c("acc")) 
+
+```
+
+```{r}
+# train our model
+
+history_10spp <- model_10spp %>% fit(
+  train_generator_10spp,
+  steps_per_epoch = 5,
+  epochs = 30,
+  validation_data = validation_generator_10spp,
+  validation_steps = 1)
+
+```
+
+```{r}
+plot(history_10spp)
+```
+
+```{r}
+results_10spp <- model_10spp %>% evaluate(test_generator_10spp)
+```
+
+```{r}
+history_10spp
+```
+
+# 4. 10 Species (multi-class classification) - convolutional neural net
+
+```{r}
+cnn_model_10spp <- keras_model_sequential() %>% 
+  layer_conv_2d(
+    filters = 32, kernel_size = c(3, 3), activation = "relu",
+    input_shape = c(150, 150, 3)) %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_conv_2d(filters = 64, kernel_size = c(3, 3), activation = "relu") %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = "relu") %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_conv_2d(filters = 128, kernel_size = c(3, 3), activation = "relu") %>% 
+  layer_max_pooling_2d(pool_size = c(2, 2)) %>% 
+  layer_flatten() %>% 
+  layer_dropout(rate = 0.5) %>% 
+  layer_dense(units = 512, activation = "relu") %>% 
+  layer_dense(units = 10, activation = "softmax")  
+  
+```
+
+```{r}
+cnn_model_10spp %>% compile(
+  loss = "categorical_crossentropy",
+  optimizer = optimizer_rmsprop(learning_rate = 0.0001),
+  metrics = c("acc"))
+```
+
+```{r}
+history_cnn_10spp <- cnn_model_10spp %>% fit(
+  train_generator_10spp,
+  steps_per_epoch = 5,
+  epochs = 30,
+  validation_data = validation_generator_10spp,
+  validation_steps = 1)
+```
+
+```{r}
+history_cnn_10spp
 ```
 
