@@ -9,14 +9,16 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Homework task is to apply your deep learning skills to build the following models:
+# Deep Learning - iNaturalist
+
+Homework task is to apply deep learning skills to build the following models:
 
 - 2 Species (binary classification) - neural net. Draw from 3.4 🍿 Movies (binary classification). You’ll need to pre-process the images to be a consistent shape first though – see 5.2.4 Data preprocessing.
 - 2 Species (binary classification) - convolutional neural net. Draw from the dogs vs cats example.
 - 10 Species (multi-class classification) - neural net. Draw from 3.5 📰 Newswires (multi-class classification).
 - 10 Species (multi-class classification) - convolutional neural net. Draw from dogs vs cats example and update necessary values to go from binary to mult-class classification.
 
-In your models, be sure to include the following:
+In the models, be sure to include the following:
 
 - Split the original images per species (n=50) into train (n=30), validate (n=10) and test (n=10). These are almost absurdly few files to feed into these complex deep learning models but will serve as a good learning example.
 - Include accuracy metric and validation in the fitting process and history plot.
@@ -59,7 +61,7 @@ i2 <- i10[1:2]
 basename(dirs_spp)[i2]
 ```
 
-# Split the original images per species (n=50) into train (n=30), validate (n=10) and test (n=10)
+### Split the original images per species (n=50) into train (n=30), validate (n=10) and test (n=10)
 
 ```{r}
 # setup data frame with source (src) and destination (dest) paths to images
@@ -185,6 +187,7 @@ plot(history_spp2)
 
 ```{r}
 results_spp2 <- model_spp2 %>% evaluate(test_generator_2spp)
+results_spp2
 ```
 
 ## 2. 2 Species (binary classification) - convolutional neural net
@@ -218,7 +221,7 @@ summary(cnn_model_spp2)
 
 ```
 
-## Train Model
+#### Train Model
 
 ```{r}
 # train our model
@@ -244,6 +247,11 @@ history_spp2
 
 ```{r}
 history_cnn_spp2
+```
+
+```{r}
+results_spp2cnn <- cnn_model_spp2 %>% evaluate(test_generator_2spp)
+results_spp2cnn
 ```
 
 
@@ -320,6 +328,7 @@ plot(history_10spp)
 
 ```{r}
 results_10spp <- model_10spp %>% evaluate(test_generator_10spp)
+results_10spp
 ```
 
 ```{r}
@@ -360,10 +369,25 @@ history_cnn_10spp <- cnn_model_10spp %>% fit(
   steps_per_epoch = 5,
   epochs = 30,
   validation_data = validation_generator_10spp,
-  validation_steps = 1)
+  validation_steps = 10)
 ```
 
 ```{r}
 history_cnn_10spp
 ```
+
+```{r}
+results_10sppcnn <- cnn_model_10spp %>% evaluate(test_generator_10spp)
+results_10spp
+```
+
+## Standard neural net compared to convolutional neural net
+
+```{r}
+results_10spp
+results_10sppcnn
+```
+
+The standard neural net model evaluated on the test images has a loss rate of `r results_10spp[[1]]` and an accuracy rate of `r results_10spp[[2]]`. The convolutional neural net model loss rate of `r results_10sppcnn[[1]]` and an accuracy rate of `r results_10sppcnn[[2]]`. These accuracy and loss rate show the standard neural network is more accurate. Typically, the convoluntional neural net is a better model, but not in this example as the data is too small. 
+
 
